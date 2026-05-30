@@ -26,7 +26,7 @@ public interface StudentExamRepository extends JpaRepository<StudentExam, Intege
            "GROUP BY se.student.id, se.student.name")
     List<Object[]> rankingDataByClass(@Param("cls") ClassEntity cls);
 
-    // Admin: total submissions and avg score for a class
+    // Stats: total submissions and avg score for a class
     @Query("SELECT COUNT(se), AVG(se.score) FROM StudentExam se WHERE :cls MEMBER OF se.student.classes")
-    Object[] classExamStats(@Param("cls") ClassEntity cls);
+    List<Object[]> classExamStats(@Param("cls") ClassEntity cls);
 }

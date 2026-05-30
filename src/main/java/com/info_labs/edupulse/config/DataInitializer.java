@@ -24,7 +24,33 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        if (classRepository.count() > 0) return; // already seeded
+        String pw = passwordEncoder.encode("password123");
+
+        // ── Always ensure admin + teacher exist (idempotent) ─────────────────
+        if (!userRepository.existsByMobile("0700000000")) {
+            User admin = new User();
+            admin.setName("Admin");
+            admin.setMobile("0700000000");
+            admin.setPassword(pw);
+            admin.setProfileType(ProfileType.ADMIN);
+            admin.setClasses(new HashSet<>());
+            userRepository.save(admin);
+            System.out.println("  ✔ Admin created: 0700000000 / password123");
+        }
+
+        if (!userRepository.existsByMobile("0711111111")) {
+            User teacher = new User();
+            teacher.setName("Teacher");
+            teacher.setMobile("0711111111");
+            teacher.setPassword(pw);
+            teacher.setProfileType(ProfileType.TEACHER);
+            List<ClassEntity> all = classRepository.findAll();
+            teacher.setClasses(new HashSet<>(all.subList(0, Math.min(3, all.size()))));
+            userRepository.save(teacher);
+            System.out.println("  ✔ Teacher created: 0711111111 / password123");
+        }
+
+        if (classRepository.count() > 0) return; // students/exams already seeded
 
         // ── Classes ──────────────────────────────────────────────────────────
         ClassEntity c1 = save(cls("Grade 10 - A"));
@@ -33,7 +59,6 @@ public class DataInitializer implements CommandLineRunner {
         ClassEntity c4 = save(cls("Grade 11 - B"));
 
         // ── Users (students can be enrolled in multiple classes) ─────────────
-        String pw = passwordEncoder.encode("password123");
         User alice   = save(user("Alice Johnson",  "0771234567", pw, c1));
         User bob     = save(user("Bob Smith",      "0772345678", pw, c1, c3)); // enrolled in 10-A and 11-A
         User charlie = save(user("Charlie Brown",  "0773456789", pw, c1));
@@ -92,24 +117,6 @@ public class DataInitializer implements CommandLineRunner {
         saveAttempt(jake,    mathB,   75, "2026-04-18");
         saveAttempt(karen,   advMath, 88, "2026-04-22");
         saveAttempt(leo,     advMath, 92, "2026-04-22");
-
-        // ── Teacher user ─────────────────────────────────────────────────────
-        User teacher = new User();
-        teacher.setName("Teacher");
-        teacher.setMobile("0711111111");
-        teacher.setPassword(pw);
-        teacher.setProfileType(ProfileType.TEACHER);
-        teacher.setClasses(new HashSet<>(Arrays.asList(c1, c2, c3)));
-        userRepository.save(teacher);
-
-        // ── Admin user ───────────────────────────────────────────────────────
-        User admin = new User();
-        admin.setName("Admin");
-        admin.setMobile("0700000000");
-        admin.setPassword(pw);
-        admin.setProfileType(ProfileType.ADMIN);
-        admin.setClasses(new HashSet<>());
-        userRepository.save(admin);
 
         // ── Notifications ─────────────────────────────────────────────────────
         saveNotif(alice,   "Welcome to EduPulse, Alice! Start exploring your exams.",           true,  "2026-04-01");

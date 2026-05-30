@@ -46,7 +46,8 @@ public class AdminService {
                 .filter(u -> u.getProfileType() == ProfileType.STUDENT)
                 .count();
 
-            Object[] examStats = studentExamRepository.classExamStats(cls);
+            List<Object[]> statRows = studentExamRepository.classExamStats(cls);
+            Object[] examStats  = statRows.isEmpty() ? new Object[]{0L, null} : statRows.get(0);
             long submissions = examStats[0] != null ? ((Number) examStats[0]).longValue() : 0L;
             long avgScore    = examStats[1] != null ? Math.round(((Number) examStats[1]).doubleValue()) : 0L;
 
