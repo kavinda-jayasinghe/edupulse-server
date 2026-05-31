@@ -119,4 +119,32 @@ public class TeacherController {
         teacherService.deleteAssignment(teacherId, classId, assignmentId);
         return ResponseEntity.noContent().build();
     }
+
+    // ── Assignment File Management ─────────────────────────────
+
+    @PostMapping(value = "/{teacherId}/classes/{classId}/assignments/{assignmentId}/files",
+                 consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> uploadFiles(@PathVariable Integer teacherId,
+                                          @PathVariable Integer classId,
+                                          @PathVariable Integer assignmentId,
+                                          @RequestParam("files") java.util.List<org.springframework.web.multipart.MultipartFile> files) {
+        return ResponseEntity.ok(teacherService.uploadAssignmentFiles(teacherId, classId, assignmentId, files));
+    }
+
+    @DeleteMapping("/{teacherId}/classes/{classId}/assignments/{assignmentId}/files/{fileId}")
+    public ResponseEntity<?> deleteFile(@PathVariable Integer teacherId,
+                                         @PathVariable Integer classId,
+                                         @PathVariable Integer assignmentId,
+                                         @PathVariable Integer fileId) {
+        teacherService.deleteAssignmentFile(teacherId, classId, assignmentId, fileId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{teacherId}/classes/{classId}/assignments/{assignmentId}/files/{fileId}")
+    public ResponseEntity<byte[]> getFile(@PathVariable Integer teacherId,
+                                           @PathVariable Integer classId,
+                                           @PathVariable Integer assignmentId,
+                                           @PathVariable Integer fileId) {
+        return teacherService.getAssignmentFileContent(teacherId, classId, assignmentId, fileId);
+    }
 }

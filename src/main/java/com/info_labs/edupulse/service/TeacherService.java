@@ -1,16 +1,21 @@
 package com.info_labs.edupulse.service;
 
 import com.info_labs.edupulse.entity.Assignment;
+import com.info_labs.edupulse.entity.AssignmentFile;
 import com.info_labs.edupulse.entity.ClassEntity;
 import com.info_labs.edupulse.entity.User;
 import com.info_labs.edupulse.repository.*;
 import com.info_labs.edupulse.utils.ProfileType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -19,10 +24,11 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TeacherService {
 
-    private final UserRepository        userRepository;
-    private final ClassRepository       classRepository;
-    private final StudentExamRepository studentExamRepository;
-    private final AssignmentRepository  assignmentRepository;
+    private final UserRepository           userRepository;
+    private final ClassRepository          classRepository;
+    private final StudentExamRepository    studentExamRepository;
+    private final AssignmentRepository     assignmentRepository;
+    private final AssignmentFileRepository assignmentFileRepository;
 
     // ── Overview ──────────────────────────────────────────────
 
@@ -126,6 +132,19 @@ public class TeacherService {
                 m.put("description", a.getDescription() != null ? a.getDescription() : "");
                 m.put("dueDate",     a.getDueDate()     != null ? a.getDueDate()     : "");
                 m.put("createdAt",   a.getCreatedAt());
+                List<Map<String, Object>> files = assignmentFileRepository
+                    .findByAssignmentIdOrderByIdAsc(a.getId())
+                    .stream()
+                    .map(f -> {
+                        Map<String, Object> fm = new LinkedHashMap<>();
+                        fm.put("id",       f.getId());
+                        fm.put("fileName", f.getFileName());
+                        fm.put("fileType", f.getFileType());
+                        fm.put("fileSize", f.getFileSize());
+                        return fm;
+                    })
+                    .collect(Collectors.toList());
+                m.put("files", files);
                 return m;
             })
             .collect(Collectors.toList());
@@ -178,8 +197,11 @@ public class TeacherService {
             userRepository.save(u);
         }
 
-        // Delete all assignments for this class
+        // Delete all assignment files and assignments for this class
         List<Assignment> assignments = assignmentRepository.findByClassEntityIdOrderByIdDesc(classId);
+        for (Assignment asgn : assignments) {
+            assignmentFileRepository.deleteByAssignmentId(asgn.getId());
+        }
         assignmentRepository.deleteAll(assignments);
 
         classRepository.delete(cls);
@@ -281,7 +303,80 @@ public class TeacherService {
         if (!a.getClassEntity().getId().equals(classId)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Assignment does not belong to this class");
         }
+        assignmentFileRepository.deleteByAssignmentId(assignmentId);
         assignmentRepository.delete(a);
+    }
+
+    // ── Assignment File Management ────────────────────────────
+
+    @Transactional
+    public List<Map<String, Object>> uploadAssignmentFiles(Integer teacherId, Integer classId,
+                                                            Integer assignmentId,
+                                                            List<MultipartFile> files) {
+        User teacher = getVerifiedTeacher(teacherId);
+        getTeacherClass(teacher, classId);
+
+        Assignment a = assignmentRepository.findById(assignmentId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Assignment not found"));
+        if (!a.getClassEntity().getId().equals(classId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Assignment does not belong to this class");
+        }
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (MultipartFile file : files) {
+            try {
+                AssignmentFile af = new AssignmentFile();
+                af.setAssignment(a);
+                af.setFileName(file.getOriginalFilename() != null ? file.getOriginalFilename() : "file");
+                af.setFileType(file.getContentType()     != null ? file.getContentType()      : "application/octet-stream");
+                af.setFileSize(file.getSize());
+                af.setFileData(file.getBytes());
+                assignmentFileRepository.save(af);
+
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id",       af.getId());
+                m.put("fileName", af.getFileName());
+                m.put("fileType", af.getFileType());
+                m.put("fileSize", af.getFileSize());
+                result.add(m);
+            } catch (IOException e) {
+                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Failed to save file: " + file.getOriginalFilename());
+            }
+        }
+        return result;
+    }
+
+    @Transactional
+    public void deleteAssignmentFile(Integer teacherId, Integer classId,
+                                      Integer assignmentId, Integer fileId) {
+        User teacher = getVerifiedTeacher(teacherId);
+        getTeacherClass(teacher, classId);
+
+        AssignmentFile af = assignmentFileRepository.findById(fileId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
+        if (!af.getAssignment().getId().equals(assignmentId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File does not belong to this assignment");
+        }
+        assignmentFileRepository.delete(af);
+    }
+
+    @Transactional(readOnly = true)
+    public ResponseEntity<byte[]> getAssignmentFileContent(Integer teacherId, Integer classId,
+                                                            Integer assignmentId, Integer fileId) {
+        User teacher = getVerifiedTeacher(teacherId);
+        getTeacherClass(teacher, classId);
+
+        AssignmentFile af = assignmentFileRepository.findById(fileId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
+        if (!af.getAssignment().getId().equals(assignmentId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File does not belong to this assignment");
+        }
+
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_TYPE, af.getFileType())
+            .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + af.getFileName() + "\"")
+            .body(af.getFileData());
     }
 
     // ── Helpers ───────────────────────────────────────────────
