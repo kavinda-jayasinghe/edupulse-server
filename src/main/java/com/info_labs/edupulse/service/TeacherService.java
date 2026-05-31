@@ -140,6 +140,51 @@ public class TeacherService {
         return result;
     }
 
+    @Transactional
+    public Map<String, Object> updateClass(Integer teacherId, Integer classId,
+                                            String name, String classCode, String subject) {
+        User teacher = getVerifiedTeacher(teacherId);
+        ClassEntity cls = getTeacherClass(teacher, classId);
+
+        String code = classCode != null ? classCode.trim().toUpperCase() : null;
+        if (code != null && !code.isEmpty() && !code.equals(cls.getClassCode())) {
+            if (classRepository.existsByClassCode(code)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Class code already in use. Please choose another.");
+            }
+        }
+
+        cls.setName(name.trim());
+        cls.setClassCode(code != null && !code.isEmpty() ? code : null);
+        cls.setSubject(subject != null && !subject.isBlank() ? subject.trim() : null);
+        classRepository.save(cls);
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("id",        cls.getId());
+        result.put("name",      cls.getName());
+        result.put("classCode", cls.getClassCode() != null ? cls.getClassCode() : "");
+        result.put("subject",   cls.getSubject()   != null ? cls.getSubject()   : "");
+        return result;
+    }
+
+    @Transactional
+    public void deleteClass(Integer teacherId, Integer classId) {
+        User teacher = getVerifiedTeacher(teacherId);
+        ClassEntity cls = getTeacherClass(teacher, classId);
+
+        // Remove class from all enrolled users (owning side of the ManyToMany)
+        List<User> enrolled = userRepository.findByClassesContaining(cls);
+        for (User u : enrolled) {
+            u.getClasses().remove(cls);
+            userRepository.save(u);
+        }
+
+        // Delete all assignments for this class
+        List<Assignment> assignments = assignmentRepository.findByClassEntityIdOrderByIdDesc(classId);
+        assignmentRepository.deleteAll(assignments);
+
+        classRepository.delete(cls);
+    }
+
     // ── Student Management ────────────────────────────────────
 
     @Transactional

@@ -48,6 +48,25 @@ public class TeacherController {
         return ResponseEntity.ok(teacherService.getClassDetail(teacherId, classId));
     }
 
+    @PutMapping("/{teacherId}/classes/{classId}")
+    public ResponseEntity<?> updateClass(@PathVariable Integer teacherId,
+                                          @PathVariable Integer classId,
+                                          @RequestBody Map<String, String> body) {
+        return ResponseEntity.ok(teacherService.updateClass(
+            teacherId, classId,
+            body.get("name"),
+            body.get("classCode"),
+            body.get("subject")
+        ));
+    }
+
+    @DeleteMapping("/{teacherId}/classes/{classId}")
+    public ResponseEntity<?> deleteClass(@PathVariable Integer teacherId,
+                                          @PathVariable Integer classId) {
+        teacherService.deleteClass(teacherId, classId);
+        return ResponseEntity.noContent().build();
+    }
+
     // ── Student Management ────────────────────────────────────
 
     @PostMapping("/{teacherId}/classes/{classId}/students")
