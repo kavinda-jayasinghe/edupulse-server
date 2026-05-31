@@ -99,6 +99,19 @@ public class TeacherController {
         ));
     }
 
+    @PutMapping("/{teacherId}/classes/{classId}/assignments/{assignmentId}")
+    public ResponseEntity<?> updateAssignment(@PathVariable Integer teacherId,
+                                               @PathVariable Integer classId,
+                                               @PathVariable Integer assignmentId,
+                                               @RequestBody Map<String, String> body) {
+        return ResponseEntity.ok(teacherService.updateAssignment(
+            teacherId, classId, assignmentId,
+            body.get("title"),
+            body.get("description"),
+            body.get("dueDate")
+        ));
+    }
+
     @DeleteMapping("/{teacherId}/classes/{classId}/assignments/{assignmentId}")
     public ResponseEntity<?> deleteAssignment(@PathVariable Integer teacherId,
                                                @PathVariable Integer classId,

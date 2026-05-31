@@ -244,6 +244,33 @@ public class TeacherService {
     }
 
     @Transactional
+    public Map<String, Object> updateAssignment(Integer teacherId, Integer classId, Integer assignmentId,
+                                                 String title, String description, String dueDate) {
+        User teacher = getVerifiedTeacher(teacherId);
+        getTeacherClass(teacher, classId);
+
+        Assignment a = assignmentRepository.findById(assignmentId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Assignment not found"));
+
+        if (!a.getClassEntity().getId().equals(classId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Assignment does not belong to this class");
+        }
+
+        a.setTitle(title.trim());
+        a.setDescription(description != null && !description.isBlank() ? description.trim() : null);
+        a.setDueDate(dueDate        != null && !dueDate.isBlank()       ? dueDate.trim()       : null);
+        assignmentRepository.save(a);
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("id",          a.getId());
+        result.put("title",       a.getTitle());
+        result.put("description", a.getDescription() != null ? a.getDescription() : "");
+        result.put("dueDate",     a.getDueDate()     != null ? a.getDueDate()     : "");
+        result.put("createdAt",   a.getCreatedAt());
+        return result;
+    }
+
+    @Transactional
     public void deleteAssignment(Integer teacherId, Integer classId, Integer assignmentId) {
         User teacher = getVerifiedTeacher(teacherId);
         getTeacherClass(teacher, classId);
