@@ -69,6 +69,12 @@ public class TeacherController {
 
     // ── Student Management ────────────────────────────────────
 
+    @GetMapping("/{teacherId}/students/search")
+    public ResponseEntity<?> searchStudent(@PathVariable Integer teacherId,
+                                            @RequestParam String mobile) {
+        return ResponseEntity.ok(teacherService.searchStudentByMobile(teacherId, mobile));
+    }
+
     @PostMapping("/{teacherId}/classes/{classId}/students")
     public ResponseEntity<?> addStudent(@PathVariable Integer teacherId,
                                          @PathVariable Integer classId,

@@ -209,6 +209,26 @@ public class TeacherService {
 
     // ── Student Management ────────────────────────────────────
 
+    @Transactional(readOnly = true)
+    public Map<String, Object> searchStudentByMobile(Integer teacherId, String mobile) {
+        getVerifiedTeacher(teacherId);
+
+        User user = userRepository.findByMobile(mobile.trim())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                "No student found with mobile: " + mobile));
+
+        if (user.getProfileType() != ProfileType.STUDENT) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                "No student found with mobile: " + mobile);
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("id",     user.getId());
+        result.put("name",   user.getName());
+        result.put("mobile", user.getMobile());
+        return result;
+    }
+
     @Transactional
     public void addStudentToClass(Integer teacherId, Integer classId, String mobile) {
         User teacher = getVerifiedTeacher(teacherId);

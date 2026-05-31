@@ -33,11 +33,7 @@ public class SecurityConfig {
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
-                .anyRequest().authenticated()
-            )
-            .exceptionHandling(ex -> ex
-                .authenticationEntryPoint((req, res, e) -> res.sendError(401, "Unauthorized"))
-            )
+                .anyRequest().authenticated())
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
