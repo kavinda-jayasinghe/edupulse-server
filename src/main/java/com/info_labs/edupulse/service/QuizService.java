@@ -2,6 +2,9 @@ package com.info_labs.edupulse.service;
 
 import com.info_labs.edupulse.dto.McqAnswerDto;
 import com.info_labs.edupulse.dto.QuizResponseDto;
+import com.info_labs.edupulse.dto.UpdateQuizRequest;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import com.info_labs.edupulse.entity.ClassEntity;
 import com.info_labs.edupulse.entity.McqAnswer;
 import com.info_labs.edupulse.entity.Quiz;
@@ -77,6 +80,51 @@ public class QuizService {
     @Transactional(readOnly = true)
     public List<McqAnswerDto> getAnswers(Integer quizId) {
         return quizMapper.toDtoList(mcqAnswerRepository.findByQuizIdOrderByQuestionNumberAsc(quizId));
+    }
+
+    @Transactional(readOnly = true)
+    public List<QuizResponseDto> getQuizzesByClass(Integer classId) {
+        return quizRepository.findByClassEntityIdOrderByIdDesc(classId).stream()
+            .map(q -> quizMapper.toDto(q,
+                mcqAnswerRepository.findByQuizIdOrderByQuestionNumberAsc(q.getId()).size()))
+            .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public ResponseEntity<byte[]> getPaperFile(Integer quizId) {
+        Quiz quiz = quizRepository.findById(quizId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Quiz not found"));
+        if (quiz.getPaperFileData() == null)
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No paper file for this quiz");
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_TYPE, quiz.getPaperFileType())
+            .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + quiz.getPaperFileName() + "\"")
+            .body(quiz.getPaperFileData());
+    }
+
+    @Transactional
+    public QuizResponseDto updateQuiz(Integer quizId, Integer teacherId, UpdateQuizRequest req) {
+        Quiz quiz = quizRepository.findById(quizId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Quiz not found"));
+        if (!quiz.getTeacherId().equals(teacherId))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not your quiz");
+        quiz.setTitle(titleCase(req.title()));
+        quiz.setInstruction(req.instruction() != null && !req.instruction().isBlank() ? req.instruction().trim() : null);
+        quiz.setTimeDuration(req.timeDuration());
+        quiz.setDueDate(req.dueDate() != null && !req.dueDate().isBlank() ? req.dueDate().trim() : null);
+        quizRepository.save(quiz);
+        int count = mcqAnswerRepository.findByQuizIdOrderByQuestionNumberAsc(quizId).size();
+        return quizMapper.toDto(quiz, count);
+    }
+
+    @Transactional
+    public void deleteQuiz(Integer quizId, Integer teacherId) {
+        Quiz quiz = quizRepository.findById(quizId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Quiz not found"));
+        if (!quiz.getTeacherId().equals(teacherId))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not your quiz");
+        mcqAnswerRepository.deleteByQuizId(quizId);
+        quizRepository.delete(quiz);
     }
 
     // ── Helpers ───────────────────────────────────────────────

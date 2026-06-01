@@ -2,6 +2,7 @@ package com.info_labs.edupulse.controller;
 
 import com.info_labs.edupulse.dto.McqAnswerDto;
 import com.info_labs.edupulse.dto.QuizResponseDto;
+import com.info_labs.edupulse.dto.UpdateQuizRequest;
 import com.info_labs.edupulse.service.QuizService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -36,5 +37,29 @@ public class QuizController {
     @GetMapping("/{quizId}/answers")
     public ResponseEntity<List<McqAnswerDto>> getAnswers(@PathVariable Integer quizId) {
         return ResponseEntity.ok(quizService.getAnswers(quizId));
+    }
+
+    @GetMapping("/class/{classId}")
+    public ResponseEntity<List<QuizResponseDto>> getByClass(@PathVariable Integer classId) {
+        return ResponseEntity.ok(quizService.getQuizzesByClass(classId));
+    }
+
+    @GetMapping("/{quizId}/paper")
+    public ResponseEntity<byte[]> getPaper(@PathVariable Integer quizId) {
+        return quizService.getPaperFile(quizId);
+    }
+
+    @PutMapping("/{quizId}")
+    public ResponseEntity<QuizResponseDto> updateQuiz(@PathVariable Integer quizId,
+                                                       @RequestParam Integer teacherId,
+                                                       @RequestBody UpdateQuizRequest request) {
+        return ResponseEntity.ok(quizService.updateQuiz(quizId, teacherId, request));
+    }
+
+    @DeleteMapping("/{quizId}")
+    public ResponseEntity<Void> deleteQuiz(@PathVariable Integer quizId,
+                                            @RequestParam Integer teacherId) {
+        quizService.deleteQuiz(quizId, teacherId);
+        return ResponseEntity.noContent().build();
     }
 }

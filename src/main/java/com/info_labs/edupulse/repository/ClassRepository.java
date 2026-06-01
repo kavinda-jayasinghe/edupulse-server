@@ -5,4 +5,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ClassRepository extends JpaRepository<ClassEntity, Integer> {
     boolean existsByClassCode(String classCode);
+    java.util.Optional<ClassEntity> findByClassCode(String classCode);
 }

@@ -1,13 +1,17 @@
 package com.info_labs.edupulse.service;
 
+import com.info_labs.edupulse.dto.JoinClassResponseDto;
 import com.info_labs.edupulse.entity.ClassEntity;
 import com.info_labs.edupulse.entity.StudentExam;
 import com.info_labs.edupulse.entity.User;
+import com.info_labs.edupulse.repository.ClassRepository;
 import com.info_labs.edupulse.repository.StudentExamRepository;
 import com.info_labs.edupulse.repository.UserRepository;
+import com.info_labs.edupulse.utils.ProfileType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.*;
@@ -20,6 +24,31 @@ public class UserService {
     private final UserRepository        userRepository;
     private final StudentExamRepository studentExamRepository;
     private final RankingService        rankingService;
+    private final ClassRepository       classRepository;
+
+    @Transactional
+    public JoinClassResponseDto joinClass(Integer studentId, String classCode) {
+        User student = userRepository.findById(studentId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        if (student.getProfileType() != ProfileType.STUDENT) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only students can join classes");
+        }
+
+        ClassEntity cls = classRepository.findByClassCode(classCode.trim().toUpperCase())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                "No class found with code \"" + classCode.toUpperCase() + "\""));
+
+        if (student.getClasses().contains(cls)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "You are already enrolled in \"" + cls.getName() + "\"");
+        }
+
+        student.getClasses().add(cls);
+        userRepository.save(student);
+
+        return new JoinClassResponseDto(cls.getName(), "Successfully joined \"" + cls.getName() + "\"");
+    }
 
     public Map<String, Object> getDashboard(Integer studentId) {
         User user = userRepository.findById(studentId)
