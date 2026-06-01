@@ -1,5 +1,6 @@
 package com.info_labs.edupulse.service;
 
+import com.info_labs.edupulse.config.CommonException;
 import com.info_labs.edupulse.dto.JoinClassResponseDto;
 import com.info_labs.edupulse.entity.ClassEntity;
 import com.info_labs.edupulse.entity.StudentExam;
@@ -8,6 +9,7 @@ import com.info_labs.edupulse.repository.ClassRepository;
 import com.info_labs.edupulse.repository.StudentExamRepository;
 import com.info_labs.edupulse.repository.UserRepository;
 import com.info_labs.edupulse.utils.ProfileType;
+import com.info_labs.edupulse.utils.ResponseCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -31,18 +33,12 @@ public class UserService {
         User student = userRepository.findById(studentId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
-        if (student.getProfileType() != ProfileType.STUDENT) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only students can join classes");
-        }
-
         ClassEntity cls = classRepository.findByClassCode(classCode.trim().toUpperCase())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                 "No class found with code \"" + classCode.toUpperCase() + "\""));
 
         if (student.getClasses().contains(cls)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                "You are already enrolled in \"" + cls.getName() + "\"");
-        }
+            throw new CommonException(ResponseCode.ALREADY_ENROLLED);}
 
         student.getClasses().add(cls);
         userRepository.save(student);
