@@ -1,7 +1,10 @@
 package com.info_labs.edupulse.service;
 
 import com.info_labs.edupulse.config.CommonException;
+import com.info_labs.edupulse.dto.ChangePasswordRequest;
 import com.info_labs.edupulse.dto.JoinClassResponseDto;
+import com.info_labs.edupulse.dto.ProfileUpdateDto;
+import com.info_labs.edupulse.dto.UpdateProfileRequest;
 import com.info_labs.edupulse.entity.ClassEntity;
 import com.info_labs.edupulse.entity.StudentExam;
 import com.info_labs.edupulse.entity.User;
@@ -12,6 +15,7 @@ import com.info_labs.edupulse.utils.ProfileType;
 import com.info_labs.edupulse.utils.ResponseCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -27,6 +31,46 @@ public class UserService {
     private final StudentExamRepository studentExamRepository;
     private final RankingService        rankingService;
     private final ClassRepository       classRepository;
+    private final PasswordEncoder          passwordEncoder;
+
+    @Transactional
+    public ProfileUpdateDto updateProfile(Integer userId, UpdateProfileRequest req) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        String newMobile = req.mobile().trim();
+        if (!user.getMobile().equals(newMobile) && userRepository.existsByMobile(newMobile)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Mobile number already in use");
+        }
+
+        user.setName(req.name().trim());
+        user.setMobile(newMobile);
+        userRepository.save(user);
+        return new ProfileUpdateDto(user.getId(), user.getName(), user.getMobile());
+    }
+
+    @Transactional(readOnly = true)
+    public void verifyPassword(Integer userId, String password) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        if (!passwordEncoder.matches(password, user.getPassword())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Current password is incorrect");
+        }
+    }
+
+    @Transactional
+    public void changePassword(Integer userId, ChangePasswordRequest req) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        if (!passwordEncoder.matches(req.currentPassword(), user.getPassword())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Current password is incorrect");
+        }
+        if (req.newPassword() == null || req.newPassword().length() < 6) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "New password must be at least 6 characters");
+        }
+        user.setPassword(passwordEncoder.encode(req.newPassword()));
+        userRepository.save(user);
+    }
 
     @Transactional
     public JoinClassResponseDto joinClass(Integer studentId, String classCode) {
